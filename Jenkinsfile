@@ -48,7 +48,7 @@ pipeline {
             steps {
                 sh '''
                     echo "==> Applying for DEV"
-                    terraform apply -input=false -auto-approve "tfplan-dev"
+                    terraform destroy -input=false -auto-approve "tfplan-dev"
                 '''
             }
         }
