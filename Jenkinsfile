@@ -7,7 +7,6 @@ pipeline {
 
     agent any
 
-    // ── Parameter: pick ONE environment per run ───────────────
     parameters {
         choice(
             name: 'ENVIRONMENT',
@@ -17,8 +16,8 @@ pipeline {
     }
 
     environment {
-       // AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
-       // AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+   //     AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+   //     AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
         AWS_DEFAULT_REGION    = 'us-east-1'
         TF_VAR_FILE           = "envs/${params.ENVIRONMENT}.tfvars"
         TF_PLAN_FILE          = "tfplan-${params.ENVIRONMENT}"
@@ -31,6 +30,20 @@ pipeline {
             steps {
                 checkout scm
                 echo "Running pipeline for environment: ${params.ENVIRONMENT}"
+            }
+        }
+
+        // ── Fix State Dir Permissions ─────────────────────────
+        // Ensures Jenkins can read/write the local Terraform state
+        // directory. This resolves "permission denied" errors on
+        // terraform.tfstate.d/<env>/terraform.tfstate.backup
+        stage('Fix Permissions') {
+            steps {
+                sh """
+                    mkdir -p terraform.tfstate.d/${params.ENVIRONMENT}
+                    chmod -R 777 terraform.tfstate.d/
+                    echo "✅ State directory permissions fixed"
+                """
             }
         }
 
@@ -60,7 +73,6 @@ pipeline {
             }
             post {
                 always {
-                    // Save human-readable plan as a build artifact
                     sh """
                         terraform show -no-color "${env.TF_PLAN_FILE}" \
                             > "${env.TF_PLAN_FILE}.txt" 2>/dev/null || true
@@ -108,7 +120,7 @@ pipeline {
 
     post {
         always {
-            sh "rm -f ${env.TF_PLAN_FILE} || true"
+            sh "rm -f ${env.TF_PLAN_FILE} ${env.TF_PLAN_FILE}.txt || true"
         }
         success {
             echo "✅ ${params.ENVIRONMENT.toUpperCase()} deployed successfully!"
